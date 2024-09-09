@@ -2,7 +2,8 @@
 pragma solidity ^0.8.0;
 
 import {wm} from "./Wm.s.sol";
-import {Nope} from "./Misc.sol";
+import {Help} from "./Help.s.sol";
+import {Nope, map} from "./Misc.sol";
 
 struct File {
     string loc;
@@ -13,17 +14,21 @@ using Files for File global;
 library Files {
     string internal constant DEFAULT_FOLDER = "temp";
 
-    function ensureDir(string memory path) internal {
-        if (!wm.vm().exists(path)) {
-            wm.vm().createDir(path, true);
-            wm.vm().removeDir(path, false);
+    using Help for *;
+
+    function ensureDir(string memory loc) internal returns (string memory) {
+        if (!wm.vm().exists(loc)) {
+            wm.vm().createDir(loc, true);
+            wm.vm().removeDir(loc, false);
         }
+
+        return loc;
     }
 
     function defaultPath(
-        string memory fileName
+        string memory name
     ) internal pure returns (string memory) {
-        return string.concat(DEFAULT_FOLDER, "/", fileName);
+        return string.concat(DEFAULT_FOLDER, "/", name);
     }
 
     function file(string memory loc) internal pure returns (File memory) {
@@ -34,41 +39,41 @@ library Files {
         return wm.vm().exists(f.loc);
     }
 
-    function ensure(File memory f) internal returns (File memory) {
-        if (!f.exists()) revert Nope(string.concat("file.ensure: ", f.loc));
-        return f;
+    function ensure(File memory f) internal returns (File memory r) {
+        if (!(r = f).exists())
+            revert Nope(string.concat("file.ensure: ", f.loc));
     }
 
     function write(
-        string memory path,
-        bytes memory data
+        string memory loc,
+        bytes memory d
     ) internal returns (File memory) {
-        ensureDir(path);
-        wm.vm().writeFile(path, trim(data));
-        wm.store().files.push(path);
-        return File(path);
+        ensureDir(loc);
+        wm.vm().writeFile(loc, d.trim());
+        wm.store().files.push(loc);
+        return File(loc);
     }
+
     function write(
-        bytes memory data,
-        string memory fileName
+        bytes memory d,
+        string memory name
     ) internal returns (File memory) {
-        return write(defaultPath(fileName), data);
+        return write(defaultPath(name), d);
     }
 
     function write(
         File memory f,
-        bytes memory data
+        bytes memory d
     ) internal returns (File memory) {
-        wm.vm().writeFile(f.loc, trim(data));
-        return f;
+        return write(f.loc, d);
     }
 
-    function write(bytes memory data) internal returns (File memory) {
-        return write(wm.vm().toString(wm.id4()), data);
+    function write(bytes memory d) internal returns (File memory) {
+        return write(wm.fileId().str(), d);
     }
 
     function read(string memory loc) internal returns (bytes memory) {
-        return wm.vm().parseBytes(wm.vm().trim(wm.vm().readFile(loc)));
+        return wm.vm().readFile(loc).trim().bts();
     }
 
     function read(File memory f) internal returns (bytes memory) {
@@ -77,10 +82,9 @@ library Files {
 
     function append(
         File memory f,
-        bytes memory data
+        bytes memory d
     ) internal returns (File memory) {
-        write(f.loc, bytes.concat(f.flush(), data));
-        return f;
+        return write(f.loc, f.flush().concat(d));
     }
 
     function flush(File memory f) internal returns (bytes memory d) {
@@ -88,12 +92,12 @@ library Files {
     }
 
     function flush(string memory loc) internal returns (bytes memory d) {
-        if (bytes(loc).length == 0) revert("no last id");
+        if (bytes(loc).length == 0) revert Nope("file.flush: empty loc");
         d = read(loc);
         write(loc, "");
     }
 
-    function rm(File memory f) internal returns (File memory) {
+    function del(File memory f) internal returns (File memory) {
         return rm(f.loc);
     }
 
@@ -102,11 +106,16 @@ library Files {
         return File(loc);
     }
 
-    function clear() internal {
-        for (uint256 i; i < wm.store().files.length; i++) {
-            File(wm.store().files[i]).rm();
-        }
+    function clear() internal returns (uint256 len) {
+        string[] storage files = wm.store().files;
+        len = files.length;
+
+        map(files, rm);
         delete wm.store().files;
+    }
+
+    function get() internal returns (File[] memory) {
+        return map(wm.store().files, file);
     }
 
     /* ------------------------------------ . ----------------------------------- */
@@ -121,15 +130,5 @@ library Files {
             )
         );
         return f;
-    }
-
-    function clg() internal {
-        for (uint256 i; i < wm.store().files.length; i++) {
-            clg(File(wm.store().files[i]));
-        }
-    }
-
-    function trim(bytes memory _s) internal pure returns (string memory) {
-        return wm.vm().trim(wm.vm().toString(_s));
     }
 }

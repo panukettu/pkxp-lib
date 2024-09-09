@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import {wm, Wm} from "./Wm.s.sol";
-import {Account, Overflow, I20} from "./Misc.sol";
+import {Account, Overflow, I20, map} from "./Misc.sol";
 import {Revert} from "./Funcs.sol";
 import {File, Files} from "./Files.s.sol";
 import {Permit} from "./vendor/Permit.sol";
@@ -12,16 +12,16 @@ library Help {
     using Help for *;
 
     function toDec(
-        uint256 _val,
+        uint256 v,
         uint8 _from,
         uint8 _to
     ) internal pure returns (uint256) {
-        if (_val == 0 || _from == _to) return _val;
+        if (v == 0 || _from == _to) return v;
 
         if (_from < _to) {
-            return _val * (10 ** (_to - _from));
+            return v * (10 ** (_to - _from));
         }
-        return _val / (10 ** (_from - _to));
+        return v / (10 ** (_from - _to));
     }
 
     function toDec(
@@ -32,48 +32,31 @@ library Help {
         return amt.toDec(I20(from).decimals(), I20(to).decimals());
     }
 
-    function toWad(uint256 _val, uint8 _dec) internal pure returns (uint256) {
-        return toDec(_val, _dec, 18);
+    function toWad(uint256 v, uint8 _dec) internal pure returns (uint256) {
+        return toDec(v, _dec, 18);
     }
 
-    function toWad(uint256 amt, address tAddr) internal view returns (uint256) {
-        return amt.toWad(I20(tAddr).decimals());
+    function toWad(uint256 v, address tAddr) internal view returns (uint256) {
+        return v.toWad(I20(tAddr).decimals());
     }
 
-    function fromWad(uint256 _val, uint8 _dec) internal pure returns (uint256) {
-        return _val.toDec(18, _dec);
+    function fromWad(uint256 v, uint8 _dec) internal pure returns (uint256) {
+        return v.toDec(18, _dec);
     }
 
-    function fromWad(
-        uint256 _val,
-        address tAddr
-    ) internal view returns (uint256) {
-        return _val.fromWad(I20(tAddr).decimals());
-    }
-
-    function getPermit(
-        address token,
-        address owner,
-        address spender,
-        uint256 amount,
-        uint256 deadline
-    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
-        return
-            wm.vm().sign(
-                owner,
-                Permit.getPermitHash(token, owner, spender, amount, deadline)
-            );
+    function fromWad(uint256 v, address tAddr) internal view returns (uint256) {
+        return v.fromWad(I20(tAddr).decimals());
     }
 
     function one(address tAddr) internal view returns (uint256) {
         return toDec(1, 0, I20(tAddr).decimals());
     }
 
-    function str(address v) internal pure returns (string memory) {
+    function txt(address v) internal pure returns (string memory) {
         return wm.vm().toString(v);
     }
 
-    function str(bytes32 v) internal pure returns (string memory) {
+    function txt(bytes32 v) internal pure returns (string memory) {
         return wm.vm().toString(v);
     }
 
@@ -81,11 +64,11 @@ library Help {
         return wm.vm().toString(v);
     }
 
-    function str(int256 v) internal pure returns (string memory) {
+    function txt(int256 v) internal pure returns (string memory) {
         return wm.vm().toString(v);
     }
 
-    function str(bytes memory v) internal pure returns (string memory) {
+    function txt(bytes memory v) internal pure returns (string memory) {
         return wm.vm().toString(v);
     }
 
@@ -137,8 +120,46 @@ library Help {
         }
     }
 
+    function str(bytes32 v) internal pure returns (string memory) {
+        return v.bts().str();
+    }
+
+    function str(bytes memory v) internal pure returns (string memory res) {
+        for (uint256 i; i < v.length; i++) {
+            if (v[i] != 0) res = string.concat(res, string(bytes.concat(v[i])));
+        }
+    }
+
+    function txt(bytes32 v, uint256 len) internal pure returns (string memory) {
+        return txt(bytes.concat(v), len);
+    }
+
+    function txt(
+        bytes memory v,
+        uint256 len
+    ) internal pure returns (string memory) {
+        bytes memory p0;
+        assembly {
+            p0 := v
+            mstore(p0, len)
+        }
+        return p0.txt();
+    }
+
     function bts(bytes32 v) internal pure returns (bytes memory) {
         return bytes.concat(v);
+    }
+
+    function toAddr(bytes32 b) internal pure returns (address) {
+        return address(uint160(uint256(b)));
+    }
+
+    function bts(string memory s) internal pure returns (bytes memory) {
+        return wm.vm().parseBytes(s);
+    }
+
+    function dstr(uint256 v) internal pure returns (string memory) {
+        return dstr(v, 18);
     }
 
     function dstr(
@@ -155,30 +176,92 @@ library Help {
         return string.concat(str(v / ds), ".", str(d));
     }
 
-    function slice(
-        bytes memory _b,
-        uint256 _s
-    ) internal pure returns (bytes memory res) {
-        return slice(_b, _s, _b.length - _s);
+    function split(
+        string memory s,
+        string memory d
+    ) internal pure returns (string[] memory) {
+        return wm.vm().split(s, d);
+    }
+
+    function split(string memory s) internal pure returns (string[] memory) {
+        return s.split(" ");
+    }
+
+    function split(
+        string memory s,
+        uint256 idx
+    ) internal pure returns (string[2] memory) {
+        bytes memory b = bytes(s);
+        return [string(b.slice(0, idx)), string(b.slice(idx))];
+    }
+
+    function join(string[] memory s) internal pure returns (string memory) {
+        return join(s, "");
+    }
+
+    function join(
+        string[] memory s,
+        string memory d
+    ) internal pure returns (string memory res) {
+        for (uint256 i; i < s.length; i++) {
+            res = string.concat(res, s[i], d);
+        }
+    }
+
+    function indexOf(
+        string memory s,
+        string memory d
+    ) internal pure returns (uint256) {
+        return wm.vm().indexOf(s, d);
+    }
+
+    function cut(
+        string memory s,
+        string memory d
+    ) internal pure returns (string[2] memory) {
+        return s.split(s.indexOf(d));
     }
 
     function slice(
-        bytes memory _b,
-        uint256 _s,
-        uint256 _l
+        string[] memory s,
+        uint256 f,
+        uint256 t
+    ) internal pure returns (string[] memory res) {
+        res = new string[](t - f);
+        while (f < t) res[f++] = s[f];
+    }
+
+    function slice(
+        string[] memory s,
+        uint256 f
+    ) internal pure returns (string[] memory res) {
+        return slice(s, f, s.length);
+    }
+
+    function slice(
+        bytes memory b,
+        uint256 f
+    ) internal pure returns (bytes memory) {
+        return slice(b, f, b.length - f);
+    }
+
+    function slice(
+        bytes memory v,
+        uint256 f,
+        uint256 t
     ) internal pure returns (bytes memory res) {
-        if (_b.length < _s + _l) revert Overflow(_b.length, _s + _l);
+        if (v.length < f + t) revert Overflow(v.length, f + t);
         assembly {
-            switch iszero(_l)
+            switch iszero(t)
             case 0 {
                 res := mload(0x40)
-                let lengthmod := and(_l, 31)
+                let lengthmod := and(t, 31)
                 let mc := add(add(res, lengthmod), mul(0x20, iszero(lengthmod)))
-                let end := add(mc, _l)
+                let end := add(mc, t)
                 for {
                     let _c := add(
-                        add(add(_b, lengthmod), mul(0x20, iszero(lengthmod))),
-                        _s
+                        add(add(v, lengthmod), mul(0x20, iszero(lengthmod))),
+                        f
                     )
                 } lt(mc, end) {
                     mc := add(mc, 0x20)
@@ -187,7 +270,7 @@ library Help {
                     mstore(mc, mload(_c))
                 }
 
-                mstore(res, _l)
+                mstore(res, t)
 
                 mstore(0x40, and(add(mc, 31), not(31)))
             }
@@ -347,11 +430,11 @@ library Help {
     }
 
     function save(Account memory a) internal returns (File memory) {
-        return Files.write(abi.encode(a), a.addr.str());
+        return Files.write(abi.encode(a), a.addr.txt());
     }
 
     function load(address a) internal returns (Account memory) {
-        return abi.decode(File(Files.defaultPath(a.str())).read(), (Account));
+        return abi.decode(File(Files.defaultPath(a.txt())).read(), (Account));
     }
 
     /* ------------------------------------ . ----------------------------------- */
@@ -360,81 +443,143 @@ library Help {
         bytes memory a,
         bytes memory b,
         string memory lbl
-    ) internal pure {
+    ) internal pure returns (Wm) {
         wm.vcall(abi.encode(a, b, lbl), IS_EQ_B);
+        return wm;
     }
-    function eq(bytes32 a, bytes32 b, string memory lbl) internal pure {
+    function eq(
+        bytes32 a,
+        bytes32 b,
+        string memory lbl
+    ) internal pure returns (Wm) {
         wm.vcall(abi.encode(bytes.concat(a), bytes.concat(b), lbl), IS_EQ_B);
+        return wm;
     }
 
     function eq(
         string memory a,
         string memory b,
         string memory lbl
-    ) internal pure {
+    ) internal pure returns (Wm) {
         wm.vcall(abi.encode(a, b, lbl), IS_EQ_STR);
+        return wm;
     }
 
-    function eq(address a, address b, string memory lbl) internal pure {
-        eq(str(a), str(b), lbl);
+    function eq(
+        address a,
+        address b,
+        string memory lbl
+    ) internal pure returns (Wm) {
+        return eq(txt(a), txt(b), lbl);
     }
 
-    function eq(uint256 a, uint256 b, string memory lbl) internal pure {
-        eq(str(a), str(b), lbl);
+    function eq(
+        uint256 a,
+        uint256 b,
+        string memory lbl
+    ) internal pure returns (Wm) {
+        return eq(str(a), str(b), lbl);
     }
 
-    function eq(int256 a, int256 b, string memory lbl) internal pure {
-        eq(str(a), str(b), lbl);
+    function eq(
+        int256 a,
+        int256 b,
+        string memory lbl
+    ) internal pure returns (Wm) {
+        return eq(txt(a), txt(b), lbl);
     }
 
-    function notEq(address a, address b, string memory lbl) internal pure {
-        notEq(str(a), str(b), lbl);
+    function notEq(
+        address a,
+        address b,
+        string memory lbl
+    ) internal pure returns (Wm) {
+        return notEq(txt(a), txt(b), lbl);
     }
 
-    function notEq(uint256 a, uint256 b, string memory lbl) internal pure {
-        notEq(str(a), str(b), lbl);
+    function notEq(
+        uint256 a,
+        uint256 b,
+        string memory lbl
+    ) internal pure returns (Wm) {
+        return notEq(txt(a), txt(b), lbl);
     }
 
-    function notEq(int256 a, int256 b, string memory lbl) internal pure {
-        notEq(str(a), str(b), lbl);
+    function notEq(
+        int256 a,
+        int256 b,
+        string memory lbl
+    ) internal pure returns (Wm) {
+        return notEq(txt(a), txt(b), lbl);
     }
 
     function notEq(
         bytes memory a,
         bytes memory b,
         string memory lbl
-    ) internal pure {
+    ) internal pure returns (Wm) {
         wm.vcall(abi.encode(a, b, lbl), NOT_EQ_B);
+        return wm;
     }
 
     function notEq(
         string memory a,
         string memory b,
         string memory lbl
-    ) internal pure {
+    ) internal pure returns (Wm) {
         wm.vcall(abi.encode(a, b, lbl), NOT_EQ_STR);
+        return wm;
     }
 
     /* ------------------------------------ . ----------------------------------- */
 
-    function clg(string memory v, string memory lbl) internal pure {
-        wm.clg(v.space(lbl));
+    function clg(string memory v) internal pure returns (Wm) {
+        return wm.clg(v);
     }
 
-    function clg(address v, string memory lbl) internal pure {
-        clg(str(v), lbl);
+    function blg(bytes memory v) internal pure returns (Wm) {
+        return wm.blg(v);
     }
 
-    function clg(bytes32 v, string memory lbl) internal pure {
-        clg(str(v), lbl);
+    function clg(
+        string memory v,
+        string memory lbl
+    ) internal pure returns (Wm) {
+        return clg(v.space(lbl));
     }
 
-    function clg(uint256 v, string memory lbl) internal pure {
-        clg(str(v), lbl);
+    function clg(address v, string memory lbl) internal pure returns (Wm) {
+        return clg(txt(v), lbl);
     }
 
-    function sr(Wm) internal pure {
-        wm.clg(string("**************************************************"));
+    function clg(uint256 v, string memory lbl) internal pure returns (Wm) {
+        return clg(txt(v), lbl);
+    }
+
+    function blg(bytes32 v, string memory lbl) internal pure returns (Wm) {
+        return blg(v.bts(), lbl);
+    }
+
+    function blg(bytes memory v, string memory lbl) internal pure returns (Wm) {
+        return clg(txt(v), lbl);
+    }
+
+    function dlg(uint256 v, string memory lbl) internal pure {
+        dlg(v, lbl, 18);
+    }
+
+    function dlg(uint256 v, string memory lbl, uint256 d) internal pure {
+        clg(lbl, v.dstr(d));
+    }
+
+    function sr(Wm) internal pure returns (Wm) {
+        return
+            clg(string("**************************************************"));
+    }
+
+    function clg(File[] memory files) internal returns (File[] memory) {
+        map(files, Files.clg);
+        return files;
     }
 
     function explorer() internal pure returns (string memory) {
@@ -442,7 +587,7 @@ library Help {
     }
 
     function href(address addr) internal pure returns (string memory) {
-        return explorer().concat("/address/").concat(addr.str());
+        return explorer().concat("/address/").concat(addr.txt());
     }
 
     function href(bytes32 txHash) internal pure returns (string memory) {
@@ -454,7 +599,7 @@ library Help {
     }
 
     function href20(address addr) internal pure returns (string memory) {
-        return string.concat(explorer(), "/token/", addr.str());
+        return string.concat(explorer(), "/token/", addr.txt());
     }
 
     function dcall(
@@ -504,6 +649,14 @@ library Help {
         if (block.chainid == 10) res = "optimistic.etherscan.io";
         if (block.chainid == 100) res = "gnosisscan.io";
         return string.concat("https://", res);
+    }
+
+    function trim(bytes memory s) internal pure returns (string memory) {
+        return trim(s.txt());
+    }
+
+    function trim(string memory s) internal pure returns (string memory) {
+        return wm.vm().trim(s);
     }
 
     function _purify(
@@ -588,5 +741,41 @@ library Help {
             x /= 10;
             y += x % 10 << 248;
         }
+    }
+
+    /* ------------------------------------ . ----------------------------------- */
+
+    function getPermit(
+        address token,
+        string memory ksId,
+        address spender,
+        uint256 amount,
+        uint256 deadline
+    ) internal returns (uint8, bytes32, bytes32) {
+        return
+            wm.sign(
+                ksId,
+                Permit.getPermitHash(
+                    token,
+                    wm.getAddr(ksId),
+                    spender,
+                    amount,
+                    deadline
+                )
+            );
+    }
+
+    function getPermit(
+        address token,
+        address owner,
+        address spender,
+        uint256 amount,
+        uint256 deadline
+    ) internal view returns (uint8, bytes32, bytes32) {
+        return
+            wm.vm().sign(
+                owner,
+                Permit.getPermitHash(token, owner, spender, amount, deadline)
+            );
     }
 }

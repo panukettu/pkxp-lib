@@ -21,6 +21,10 @@ interface IMVM {
     function createDir(string calldata, bool) external;
     function removeDir(string calldata, bool) external;
     function removeFile(string calldata) external;
+    function split(
+        string calldata,
+        string calldata
+    ) external pure returns (string[] memory);
     function unixTime() external view returns (uint256);
     function warp(uint256) external;
     function parseBytes(string calldata) external pure returns (bytes memory);
@@ -63,11 +67,21 @@ interface IMVM {
     function stopBroadcast() external;
     function stopPrank() external;
     function readCallers() external view returns (CallerMode, address, address);
-
+    function indexOf(
+        string calldata,
+        string calldata
+    ) external pure returns (uint256);
     function parseUint(string calldata) external pure returns (uint256);
-    function rpc(string calldata m, string calldata p) external;
+    function rpc(
+        string calldata m,
+        string calldata p
+    ) external returns (bytes memory);
     function sign(
         address,
+        bytes32
+    ) external view returns (uint8 v, bytes32 r, bytes32 s);
+    function sign(
+        uint256,
         bytes32
     ) external view returns (uint8 v, bytes32 r, bytes32 s);
     struct FFIResult {

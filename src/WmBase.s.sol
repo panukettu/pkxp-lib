@@ -3,8 +3,62 @@ pragma solidity ^0.8.0;
 
 import {Wallet, wm} from "./Wallet.s.sol";
 import {IMVM} from "./IMVM.sol";
+import {File, Files} from "./Files.s.sol";
+import {Account} from "./Misc.sol";
 
-abstract contract Signer is Wallet {
+abstract contract WmBase is Wallet {
+    function connect(string memory network) internal virtual returns (uint256) {
+        return connect(network, 0);
+    }
+
+    function connect(
+        string memory network,
+        uint256 bnr
+    ) internal virtual returns (uint256) {
+        return wm.fork(network, bnr);
+    }
+
+    function connect(
+        string memory mEnvKey,
+        string memory network,
+        uint256 bnr
+    ) internal virtual returns (uint256) {
+        useMnemonic(mEnvKey);
+        return connect(network, bnr);
+    }
+
+    function connect(
+        string memory mEnvKey,
+        string memory network
+    ) internal virtual returns (uint256) {
+        return connect(mEnvKey, network, 0);
+    }
+
+    function fileAt(string memory loc) internal pure returns (File memory) {
+        return File(loc);
+    }
+
+    function write(bytes memory d) internal virtual returns (File memory) {
+        return Files.write(d);
+    }
+
+    function write(
+        string memory to,
+        bytes memory d
+    ) internal virtual returns (File memory) {
+        return Files.write(to, d);
+    }
+
+    modifier fork(string memory id) virtual {
+        wm.fork(id);
+        _;
+    }
+
+    modifier forkAt(string memory id, uint256 b) virtual {
+        wm.fork(id, b);
+        _;
+    }
+
     modifier sendFromAddr(address who) {
         sendFrom(who);
         _;
@@ -67,9 +121,17 @@ abstract contract Signer is Wallet {
 
     function clearCallers()
         internal
-        returns (IMVM.CallerMode m, address s, address o)
+        returns (IMVM.CallerMode, address, address)
     {
         return wm.clearCallers();
+    }
+
+    function makePayable(string memory lbl) internal returns (address payable) {
+        return wm.makeAddr(lbl);
+    }
+
+    function makeAcc(string memory lbl) internal returns (Account memory) {
+        return wm.makeAccount(lbl);
     }
 
     function prank(
@@ -93,7 +155,7 @@ abstract contract Signer is Wallet {
     function sendFrom(
         address who
     ) internal virtual returns (IMVM.CallerMode, address, address) {
-        return wm.signer(useAddr(who));
+        return wm.sendFrom(useAddr(who));
     }
 
     function sendFrom(uint32 idx) internal virtual {
@@ -105,10 +167,10 @@ abstract contract Signer is Wallet {
     }
 
     function sendFromKey(uint256 pk) internal virtual {
-        sendFrom(getAddrPk(pk));
+        sendFrom(usePk(pk));
     }
 
     function sendFromKey(string memory envKey) internal virtual {
-        sendFrom(getAddrPk(envKey));
+        sendFrom(usePk(envKey));
     }
 }

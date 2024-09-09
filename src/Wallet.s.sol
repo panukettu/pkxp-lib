@@ -27,6 +27,11 @@ contract Wallet {
         _;
     }
 
+    modifier wallet(string memory ksName) virtual {
+        useKs(ksName);
+        _;
+    }
+
     modifier pk(string memory _env) virtual {
         usePk(_env);
         _;
@@ -55,6 +60,12 @@ contract Wallet {
         return useMnemonic(wm.store().mEnv, idx);
     }
 
+    function useKs(
+        string memory ksId
+    ) internal virtual returns (address payable) {
+        return sender = wm.getAddr(ksId);
+    }
+
     function usePk(
         string memory envKey
     ) internal virtual returns (address payable) {
@@ -62,7 +73,7 @@ contract Wallet {
     }
 
     function usePk() internal virtual returns (address payable) {
-        return sender = wm.getAddrPk(wm.store().pkEnv);
+        return sender = wm.usePk(wm.store().pkEnv);
     }
 
     function useAddr(
@@ -74,9 +85,9 @@ contract Wallet {
     function useWallets(
         string memory mEnvKey,
         string memory pkEnvKey
-    ) internal virtual returns (address payable maddr, address payable pkaddr) {
-        maddr = useMnemonic(mEnvKey);
-        pkaddr = usePk(pkEnvKey);
+    ) internal virtual returns (address payable mAddr, address payable pkAddr) {
+        mAddr = useMnemonic(mEnvKey);
+        pkAddr = usePk(pkEnvKey);
     }
 
     function getAddr(
@@ -92,11 +103,11 @@ contract Wallet {
     function getAddrPk(
         string memory pkEnvKey
     ) internal virtual returns (address payable) {
-        return wm.getAddrPk(pkEnvKey);
+        return wm.usePk(pkEnvKey);
     }
 
-    function getAddrPk(uint256 raw) internal virtual returns (address payable) {
-        return wm.getAddrPk(raw);
+    function usePk(uint256 raw) internal virtual returns (address payable) {
+        return wm.usePk(raw);
     }
 
     function msgSender() internal view virtual returns (address) {

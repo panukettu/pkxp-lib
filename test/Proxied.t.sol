@@ -2,11 +2,11 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {Signer} from "../src/Signer.s.sol";
+import {WmBase} from "../src/WmBase.s.sol";
 import {Help} from "../src/Help.s.sol";
 import {Proxied, ProxiedStorage, PROXIED_STORAGE_SLOT} from "../src/util/Proxied.sol";
 
-contract ProxiedTest is Test, Signer {
+contract ProxiedTest is Test, WmBase {
     using Help for *;
 
     address internal constant owner =

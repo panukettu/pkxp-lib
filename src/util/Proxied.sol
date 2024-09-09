@@ -3,11 +3,11 @@ pragma solidity ^0.8.26;
 
 import {Proxy} from "../vendor/Proxy.sol";
 import {IProxied, ProxiedStorage, ZeroAddress, PROXIED_STORAGE_SLOT} from "./IProxied.sol";
-import {Solady} from "../vendor/Solady.sol";
-import {Revert, create} from "../Funcs.sol";
+import {Revert} from "../Funcs.sol";
+import {Create} from "../Create.sol";
 
 contract Proxied is IProxied, Proxy {
-    using Solady for bytes32;
+    using Create for bytes;
 
     modifier nonZero(address addr) virtual {
         if (addr == address(0)) revert ZeroAddress();
@@ -47,7 +47,7 @@ contract Proxied is IProxied, Proxy {
         bytes calldata impl,
         bytes32 salt
     ) public payable virtual returns (address) {
-        return setImplementation(create(impl, salt));
+        return setImplementation(impl.deploy(salt));
     }
 
     function setImplementation(
@@ -61,7 +61,7 @@ contract Proxied is IProxied, Proxy {
         bytes calldata call,
         bytes32 salt
     ) public payable virtual returns (address) {
-        return setImplementation(create(impl, salt), call);
+        return setImplementation(impl.deploy(salt), call);
     }
 
     function setImplementation(
@@ -99,7 +99,7 @@ contract Proxied is IProxied, Proxy {
         bytes32 salt
     ) external virtual returns (address) {
         if (msg.sender != address(this)) return _peekImplementation();
-        Revert(abi.encode(create(ccode, salt)));
+        Revert(abi.encode(ccode.deploy(salt)));
     }
 
     function setProxyAuth(

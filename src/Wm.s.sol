@@ -3,9 +3,10 @@
 pragma solidity ^0.8.0;
 
 import {IMVM} from "./IMVM.sol";
-import {clgAddr, DEFAULT_MNEMONIC_ENV, DEFAULT_PK_ENV, DEFAULT_RPC_ENV, vmAddr, Account} from "./Misc.sol";
+import {clgAddr, DEFAULT_MNEMONIC_ENV, getFFIPath, GPG_PASSWORD_ENV, DEFAULT_PK_ENV, DEFAULT_RPC_ENV, vmAddr, Account} from "./Misc.sol";
 
 import {Revert} from "./Funcs.sol";
+import {Permit} from "./vendor/Permit.sol";
 
 Wm constant wm = Wm.wrap(vmAddr);
 
@@ -20,43 +21,49 @@ library LibWm {
         string pkEnv;
     }
 
+    function ffi(Wm w, string memory cmd) internal returns (bytes memory) {
+        return w.ffi(w.vm().split(cmd, " "));
+    }
+
+    function ffi(Wm w, string[] memory args) internal returns (bytes memory) {
+        IMVM.FFIResult memory res = w.vm().tryFfi(args);
+        if (res.exitCode != 0) {
+            if (res.stderr.length != 0) Revert(res.stderr);
+            else Revert(res.stdout);
+        }
+        return res.stdout;
+    }
+
+    function getEnv(
+        Wm w,
+        string memory envKey,
+        string memory envKeyFallback
+    ) internal view returns (string memory r) {
+        r = w.vm().envOr(envKey, "");
+        if (bytes(r).length == 0) return w.vm().envString(envKeyFallback);
+    }
+
     function vm(Wm w) internal pure returns (IMVM) {
         return IMVM(Wm.unwrap(w));
     }
 
-    function getTime(Wm w) internal view returns (uint256) {
-        return w.vm().unixTime() / 1000;
-    }
-
-    function syncTime(Wm w) internal {
-        return w.vm().warp(w.getTime());
-    }
-
-    function id4(Wm w) internal returns (bytes4 b) {
-        w.store().lastId = (b = bytes4(w.id()));
-    }
-
-    function id(Wm w) internal view returns (bytes32) {
-        return bytes32(w.vm().randomUint());
-    }
-
-    function getPk(
+    function readPk(
         Wm w,
         string memory pkEnvKey
-    ) internal view returns (uint256) {
+    ) private view returns (uint256) {
         return w.vm().parseUint(w.getEnv(pkEnvKey, DEFAULT_PK_ENV));
     }
 
-    function getPkAt(
+    function readPkAt(
         Wm w,
         string memory mEnvKey,
         uint32 idx
-    ) internal view returns (uint256) {
+    ) private view returns (uint256) {
         return w.vm().deriveKey(w.getEnv(mEnvKey, DEFAULT_MNEMONIC_ENV), idx);
     }
 
-    function getPkAt(Wm w, uint32 idx) internal view returns (uint256) {
-        return w.getPkAt(w.store().mEnv, idx);
+    function readPkAt(Wm w, uint32 idx) private view returns (uint256) {
+        return readPkAt(w, w.store().mEnv, idx);
     }
 
     function getAddr(
@@ -64,7 +71,7 @@ library LibWm {
         string memory mEnvKey,
         uint32 idx
     ) internal returns (address payable) {
-        return w.getAddrPk(w.getPkAt(mEnvKey, idx));
+        return w.usePk(readPkAt(w, mEnvKey, idx));
     }
 
     function getAddr(Wm w, uint32 idx) internal returns (address payable) {
@@ -75,32 +82,46 @@ library LibWm {
         Wm w,
         string memory ksId
     ) internal returns (address payable) {
-        // todo;
+        string[] memory cmd = new string[](3);
+        cmd[0] = "./ks-key.ffi.sh";
+        cmd[1] = ksId;
+        cmd[2] = w.vm().envOr(GPG_PASSWORD_ENV, "");
+        return usePk(w, uint256(bytes32(wm.ffi(cmd))));
+    }
+    function getPk(Wm w, string memory ksId) internal returns (uint256) {
+        string[] memory cmd = new string[](3);
+        cmd[0] = "./ks-key.ffi.sh";
+        cmd[1] = ksId;
+        cmd[2] = w.vm().envOr(GPG_PASSWORD_ENV, "");
+        return uint256(bytes32(wm.ffi(cmd)));
     }
 
-    function getAddrPk(Wm w, uint256 pk) internal returns (address payable) {
+    function usePk(Wm w, uint256 pk) internal returns (address payable) {
         return payable(w.vm().rememberKey(pk));
     }
 
-    function getAddrPk(
+    function usePk(
         Wm w,
         string memory pkEnvKey
     ) internal returns (address payable) {
-        return w.getAddrPk(w.getPk(pkEnvKey));
+        return w.usePk(readPk(w, pkEnvKey));
     }
 
-    function getEnv(
-        Wm w,
-        string memory _envKey,
-        string memory _envKeyFallback
-    ) internal view returns (string memory r) {
-        r = w.vm().envOr(_envKey, "");
-        if (bytes(r).length == 0) {
-            r = w.vm().envOr(_envKeyFallback, "");
-        }
-        if (bytes(r).length == 0) {
-            revert("no env");
-        }
+    function getTime(Wm w) internal view returns (uint256) {
+        return w.vm().unixTime() / 1000;
+    }
+
+    function syncTime(Wm w) internal returns (Wm) {
+        w.vm().warp(w.getTime());
+        return w;
+    }
+
+    function fileId(Wm w) internal returns (bytes4 b) {
+        w.store().lastId = (b = bytes4(w.id()));
+    }
+
+    function id(Wm w) internal view returns (bytes32) {
+        return bytes32(w.vm().randomUint());
     }
 
     function getRPC(
@@ -112,6 +133,14 @@ library LibWm {
         } catch {
             return w.getEnv(idOrURL, DEFAULT_RPC_ENV);
         }
+    }
+
+    function rpc(
+        Wm w,
+        string memory m,
+        string memory p
+    ) internal returns (bytes memory) {
+        return w.vm().rpc(m, string.concat("[", p, "]"));
     }
 
     function getNextAddr(
@@ -141,7 +170,7 @@ library LibWm {
         string memory lbl
     ) internal returns (Account memory r) {
         r.pk = uint256(keccak256(abi.encodePacked(lbl)));
-        w.vm().label((r.addr = w.getAddrPk(r.pk)), (r.label = lbl));
+        w.vm().label((r.addr = w.usePk(r.pk)), (r.label = lbl));
     }
 
     function makeAddr(
@@ -175,7 +204,7 @@ library LibWm {
         w.vm().startPrank(s, o);
     }
 
-    function signer(
+    function sendFrom(
         Wm w,
         address s
     ) internal returns (IMVM.CallerMode m_, address s_, address o_) {
@@ -183,8 +212,24 @@ library LibWm {
         w.vm().startBroadcast(s);
     }
 
-    function msgSender(Wm w) internal view returns (address s_) {
-        (, s_, ) = w.vm().readCallers();
+    function sign(
+        Wm w,
+        string memory ksId,
+        bytes32 d
+    ) internal returns (uint8, bytes32, bytes32) {
+        return w.vm().sign(getPk(w, ksId), d);
+    }
+
+    function sign(
+        Wm w,
+        uint32 idx,
+        bytes32 d
+    ) internal returns (uint8, bytes32, bytes32) {
+        return w.vm().sign(getAddr(w, idx), d);
+    }
+
+    function msgSender(Wm w) internal view returns (address sender) {
+        (, sender, ) = w.vm().readCallers();
     }
 
     function clearCallers(
@@ -211,7 +256,7 @@ library LibWm {
         IMVM.CallerMode _m,
         address _ss,
         address _so
-    ) internal returns (IMVM.CallerMode) {
+    ) internal returns (Wm) {
         w.clearCallers();
 
         if (_m == IMVM.CallerMode.Broadcast) w.vm().broadcast(_ss);
@@ -227,7 +272,7 @@ library LibWm {
             _ss == _so ? w.vm().startPrank(_ss, _so) : w.vm().startPrank(_ss);
         }
 
-        return _m;
+        return w;
     }
 
     function vcall(
@@ -261,16 +306,16 @@ library LibWm {
 
     /* ------------------------------------ . ----------------------------------- */
 
-    function clg(Wm, string memory _s) internal pure {
-        clg(abi.encodeWithSelector(0x41304fac, _s));
+    function clg(Wm, string memory _s) internal pure returns (Wm) {
+        return clg(abi.encodeWithSelector(0x41304fac, _s));
     }
 
-    function blg(Wm, bytes memory _b) internal pure {
-        clg(abi.encodeWithSelector(0x0be77f56, _b));
+    function blg(Wm, bytes memory _b) internal pure returns (Wm) {
+        return clg(abi.encodeWithSelector(0x0be77f56, _b));
     }
 
-    function nl(Wm, string memory _s) internal pure returns (string memory) {
-        return string.concat("\n    ", _s);
+    function nl(Wm, string memory s) internal pure returns (string memory) {
+        return string.concat("\n    ", s);
     }
 
     function hasVM(Wm w) internal pure returns (bool) {
@@ -295,7 +340,7 @@ library LibWm {
         Wm w,
         string memory envKey
     ) internal returns (address payable) {
-        return w.getAddrPk(w.store().pkEnv = envKey);
+        return w.usePk(w.store().pkEnv = envKey);
     }
 
     function setWallets(
@@ -323,8 +368,9 @@ library LibWm {
         Revert(retData);
     }
 
-    function clg(bytes memory _p) private pure {
+    function clg(bytes memory _p) private pure returns (Wm) {
         _purify(_clg)(_p);
+        return wm;
     }
 
     function _clg(bytes memory _b) private view {

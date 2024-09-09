@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Help} from "./Help.s.sol";
+import {File} from "./Files.s.sol";
 
 using Help for Account global;
 
@@ -37,3 +38,26 @@ string constant DEFAULT_RPC_ENV = "ETH_RPC_URL";
 string constant DEFAULT_MNEMONIC_ENV = "MNEMONIC";
 string constant DEFAULT_PK_ENV = "PRIVATE_KEY";
 string constant DEFAULT_MNEMONIC = "error burger code";
+string constant GPG_PASSWORD_ENV = "ETH_PASSWORD_GPG";
+
+string constant BASE_FFI_DIR = "./lib/pkxp/src/";
+
+function getFFIPath(string memory _path) pure returns (string memory) {
+    return string.concat(BASE_FFI_DIR, _path);
+}
+
+function map(
+    string[] memory files,
+    function(string memory) returns (File memory) fn
+) returns (File[] memory out) {
+    out = new File[](files.length);
+    for (uint256 i; i < files.length; i++) out[i] = fn(files[i]);
+}
+
+function map(
+    File[] memory files,
+    function(File memory) returns (File memory) fn
+) returns (File[] memory out) {
+    out = new File[](files.length);
+    for (uint256 i; i < files.length; i++) out[i] = fn(files[i]);
+}

@@ -1,66 +1,23 @@
-## Foundry
+## pkxp forge library
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Mainly forge script/test utilities and common vendor libraries. **USE AT YOUR OWN RISK**.
 
-Foundry consists of:
+### Notes
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+- Use keystore accounts by name in scripts/tests, eg. `wm.sendFrom("my account")`. You can also use a gpg-encrypted password file by setting `ETH_PASSWORD_GPG`, otherwise `ETH_PASSWORD` is used.
+- Pranks/broadcasts are recurrent and always wipe existing ones, so no need for `stopPrank` or `stopBroadcast`.
+- Add `using Help for *;` for common utils/less verbose stuff eg. `address(1).clg("the-addr")`, `myVar.eq(myOtherVar, "eq-foo")`, `uint256 half = 1 ether.pmul(50.00e2)`.
 
-## Documentation
+- To avoid clashes: `broadcast` is `sendFrom`
+- Modifiers `pranked$` or `sendFrom$` restore the previous caller mode and account.
 
-https://book.getfoundry.sh/
+### Defaults
 
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+```solidity
+string constant DEFAULT_RPC_ENV = "ETH_RPC_URL";
+string constant DEFAULT_MNEMONIC_ENV = "MNEMONIC";
+string constant DEFAULT_PK_ENV = "PRIVATE_KEY";
+string constant DEFAULT_MNEMONIC = "error burger code";
+string constant GPG_PASSWORD_ENV = "ETH_PASSWORD_GPG";
+string constant BASE_FFI_DIR = "./lib/pkxp/src/";
 ```
