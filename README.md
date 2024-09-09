@@ -6,7 +6,6 @@ Mainly forge script/test utilities and common vendor libraries. **USE AT YOUR OW
 
 - Use keystore accounts by name in scripts/tests, eg. `wm.sendFrom("my account")`. You can also use a gpg-encrypted password file by setting `ETH_PASSWORD_GPG`, otherwise `ETH_PASSWORD` is used.
 - Pranks/broadcasts are recurrent and always wipe existing ones, so no need for `stopPrank` or `stopBroadcast`.
-- Add `using Help for *;` for common utils/less verbose stuff eg. `address(1).clg("the-addr")`, `myVar.eq(myOtherVar, "eq-foo")`, `uint256 half = 1 ether.pmul(50.00e2)`.
 
 - To avoid clashes: `broadcast` is `sendFrom`
 - Modifiers `pranked$` or `sendFrom$` restore the previous caller mode and account.
