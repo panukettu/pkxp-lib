@@ -82,15 +82,12 @@ library LibWm {
         Wm w,
         string memory ksId
     ) internal returns (address payable) {
-        string[] memory cmd = new string[](3);
-        cmd[0] = "./ks-key.ffi.sh";
-        cmd[1] = ksId;
-        cmd[2] = w.vm().envOr(GPG_PASSWORD_ENV, "");
-        return usePk(w, uint256(bytes32(wm.ffi(cmd))));
+        return w.usePk(getPk(w, ksId));
     }
+
     function getPk(Wm w, string memory ksId) internal returns (uint256) {
         string[] memory cmd = new string[](3);
-        cmd[0] = "./ks-key.ffi.sh";
+        cmd[0] = getFFIPath("ks-key.ffi.sh");
         cmd[1] = ksId;
         cmd[2] = w.vm().envOr(GPG_PASSWORD_ENV, "");
         return uint256(bytes32(wm.ffi(cmd)));
