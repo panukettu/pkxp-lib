@@ -40,7 +40,7 @@ string constant DEFAULT_PK_ENV = "PRIVATE_KEY";
 string constant DEFAULT_MNEMONIC = "error burger code";
 string constant GPG_PASSWORD_ENV = "ETH_PASSWORD_GPG";
 
-string constant BASE_FFI_DIR = "./lib/pkxp-lib/src/";
+string constant BASE_FFI_DIR = "./lib/pkxp-lib/";
 
 function getFFIPath(string memory _path) pure returns (string memory) {
     return string.concat(BASE_FFI_DIR, _path);
