@@ -159,7 +159,9 @@ library LibWm {
         string memory idOrURL,
         uint256 bnr
     ) internal view returns (uint256) {
-        return w.vm().createSelectFork(w.getRPC(idOrURL), bnr);
+        string memory _rpc = w.getRPC(idOrURL);
+        if (bnr == 0) return w.vm().createSelectFork(_rpc);
+        return w.vm().createSelectFork(_rpc, bnr);
     }
 
     function makeAccount(
