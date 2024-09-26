@@ -7,6 +7,7 @@ import {clgAddr, DEFAULT_MNEMONIC_ENV, getFFIPath, GPG_PASSWORD_ENV, DEFAULT_PK_
 
 import {Revert} from "./Funcs.sol";
 import {Permit} from "./vendor/Permit.sol";
+import {Time, Times} from "./Time.sol";
 
 Wm constant wm = Wm.wrap(vmAddr);
 
@@ -106,6 +107,17 @@ library LibWm {
 
     function getTime(Wm w) internal view returns (uint256) {
         return w.vm().unixTime() / 1000;
+    }
+
+    function getApproxDate(Wm w) internal view returns (Time memory) {
+        return Times.toApproxDate(w.getTime());
+    }
+
+    function getRelativeTime(
+        Wm w,
+        Time memory past
+    ) internal view returns (Time memory) {
+        return Times.getRelativeTime(past, w.getApproxDate());
     }
 
     function syncTime(Wm w) internal returns (Wm) {

@@ -283,6 +283,36 @@ library Help {
         }
     }
 
+    function padLeft(
+        string memory val,
+        uint256 len,
+        string memory char
+    ) internal pure returns (string memory result) {
+        result = val;
+
+        uint256 strLen = bytes(val).length;
+        if (strLen >= len) return result;
+
+        for (uint256 i = strLen; i < len; i++) {
+            result = char.concat(result);
+        }
+    }
+
+    function padRight(
+        string memory val,
+        uint256 len,
+        string memory char
+    ) internal pure returns (string memory result) {
+        result = val;
+
+        uint256 strLen = bytes(val).length;
+        if (strLen >= len) return result;
+
+        for (uint256 i = strLen; i < len; i++) {
+            result = result.concat(char);
+        }
+    }
+
     function equals(
         string memory a,
         string memory b
